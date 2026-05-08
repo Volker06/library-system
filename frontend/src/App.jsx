@@ -26,11 +26,11 @@ function App() {
             </nav>
 
             <div className="max-w-6xl mx-auto px-4">
-                {page === 'compare' && <ComparePage />}
-                {page === 'books' && <BooksPage />}
-                {page === 'authors' && <AuthorsPage />}
-                {page === 'borrow' && <BorrowPage />}
-            </div>
+  <div style={{ display: page === 'compare' ? 'block' : 'none' }}><ComparePage /></div>
+  <div style={{ display: page === 'books' ? 'block' : 'none' }}><BooksPage /></div>
+  <div style={{ display: page === 'authors' ? 'block' : 'none' }}><AuthorsPage /></div>
+  <div style={{ display: page === 'borrow' ? 'block' : 'none' }}><BorrowPage /></div>
+  </div>
         </div>
     )
 }

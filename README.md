@@ -9,7 +9,7 @@ Trần Minh Thái 524H0029
 ## Live Demo
 - **Frontend:** https://library-system-ten-tau.vercel.app
 - **Backend API:** https://library-system-backend-eumj.onrender.com
-- **GraphQL Sandbox:** https://library-system-backend-eumj.onrender.com/graphql
+- **GraphQL Endpoint:** https://library-system-backend-eumj.onrender.com/graphql
 
 ## Tech Stack
 - **Frontend:** React + Vite + TailwindCSS

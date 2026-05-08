@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import axios from 'axios'
 
-const REST_URL = 'http://localhost:4000/api/v1'
-const GRAPHQL_URL = 'http://localhost:4000/graphql'
+const REST_URL = 'https://library-system-backend-eumj.onrender.com/api/v1'
+const GRAPHQL_URL = 'https://library-system-backend-eumj.onrender.com/graphql'
 
 function App() {
   const [restData, setRestData] = useState(null)

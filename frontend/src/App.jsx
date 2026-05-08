@@ -259,4 +259,32 @@ function BorrowPage() {
                 </div>
                 {!loaded && <p className="text-gray-400 text-sm">Click "Load Records" to fetch data via REST API</p>}
                 {records.map(r => (
-                    <div key={r.id} className="flex justify-between items-center border-b py-3">
+          <div key={r.id} className="flex justify-between items-center border-b py-3">
+            <div>
+              <p className="font-medium">{r.book?.title}</p>
+              <p className="text-sm text-gray-500">
+                User: {r.user?.name} | Borrowed: {new Date(r.borrowedAt).toLocaleDateString()}
+              </p>
+              <p className="text-sm">
+                {r.returnedAt
+                  ? <span className="text-green-500">Returned</span>
+                  : <span className="text-orange-400">Not returned</span>
+                }
+              </p>
+            </div>
+            {!r.returnedAt && (
+              <button
+                onClick={() => returnBook(r.id)}
+                className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+              >
+                Return
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default App

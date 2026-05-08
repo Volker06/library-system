@@ -14,7 +14,11 @@ dotenv.config()
 
 const app = express()
 
-const server = new ApolloServer({ typeDefs, resolvers })
+const server = new ApolloServer({ 
+  typeDefs, 
+  resolvers,
+  introspection: true
+})
 await server.start()
 
 app.get('/', (req, res) => res.json({ message: 'Library API is running!' }))

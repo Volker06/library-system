@@ -2,7 +2,13 @@ import express from 'express'
 import { PrismaClient } from '@prisma/client'
 
 const router = express.Router()
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: 'file:../prisma/dev.db'
+    }
+  }
+})
 
 // GET all users
 router.get('/', async (req, res) => {
@@ -21,10 +27,28 @@ router.post('/', async (req, res) => {
 
 // DELETE user
 router.delete('/:id', async (req, res) => {
-  await prisma.user.delete({
-    where: { id: parseInt(req.params.id) }
-  })
-  res.json({ message: 'User deleted' })
+  try {
+    await prisma.user.delete({
+      where: { id: parseInt(req.params.id) }
+    })
+    res.json({ message: 'User deleted' })
+  } catch (e) {
+    res.status(400).json({ error: 'Cannot delete user with borrow records' })
+  }
+})
+
+// PUT update user
+router.put('/:id', async (req, res) => {
+  try {
+    const { name, email, password } = req.body
+    const user = await prisma.user.update({
+      where: { id: parseInt(req.params.id) },
+      data: { name, email, password }
+    })
+    res.json(user)
+  } catch (e) {
+    res.status(400).json({ error: 'Update failed' })
+  }
 })
 
 export default router

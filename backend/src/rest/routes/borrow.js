@@ -2,7 +2,13 @@ import express from 'express'
 import { PrismaClient } from '@prisma/client'
 
 const router = express.Router()
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: 'file:../prisma/dev.db'
+    }
+  }
+})
 
 // Borrow a book
 router.post('/', async (req, res) => {

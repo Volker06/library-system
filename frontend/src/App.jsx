@@ -128,10 +128,6 @@ function LoginPage({ onLogin }) {
               No account?{' '}
               <button onClick={() => setShowRegister(true)} className="text-blue-500 hover:underline">Register</button>
             </p>
-            <div className="mt-4 p-3 bg-gray-50 rounded text-xs text-gray-500">
-              <p className="font-bold mb-1">Test credentials:</p>
-              <p>Admin: admin@library.com / Admin@123</p>
-            </div>
           </>
         ) : (
           <>
@@ -192,13 +188,14 @@ function ComparePage() {
   }
 
   const fetchGraphQL = async () => {
-    const start = performance.now()
-    const res = await axios.post(GRAPHQL_URL, { query: `query { books { title } }` })
-    const end = performance.now()
-    setGraphqlData(res.data.data.books)
-    setGraphqlTime((end - start).toFixed(2))
-    setGraphqlSize(JSON.stringify(res.data.data.books).length)
-  }
+  const start = performance.now()
+  const res = await axios.post(GRAPHQL_URL, { query: `query { books { title } }` })
+  const end = performance.now()
+  console.log('GraphQL response:', res.data)
+  setGraphqlData(res.data.data.books)
+  setGraphqlTime((end - start).toFixed(2))
+  setGraphqlSize(JSON.stringify(res.data.data.books).length)
+}
 
   return (
     <div>

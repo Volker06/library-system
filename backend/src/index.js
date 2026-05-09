@@ -28,7 +28,7 @@ app.use('/api/v1/books', cors(), express.json(), bookRoutes)
 app.use('/api/v1/authors', cors(), express.json(), authorRoutes)
 app.use('/api/v1/users', cors(), express.json(), userRoutes)
 app.use('/api/v1/borrow', cors(), express.json(), borrowRoutes)
-app.use('/graphql', cors(), express.json(), expressMiddleware(server))
+app.use('/graphql', cors({ origin: '*' }), express.json(), expressMiddleware(server))
 
 const PORT = process.env.PORT || 4000
 app.listen(PORT, () => {

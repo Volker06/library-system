@@ -184,3 +184,60 @@ mutation { returnBook(id: 1) { id returnedAt } }
 | HTTP Caching | ✅ Easy | ❌ Complex |
 | Learning Curve | ✅ Easy | ❌ Steeper |
 | Payload Size | 205 chars | 54 chars (73.7% smaller) |
+
+---
+
+## Testing with Postman
+
+### Step 1 — Login to get Token
+- Method: `POST`
+- URL: `https://library-system-backend-eumj.onrender.com/api/v1/auth/login`
+- Tab **Body** → **raw** → **JSON**:
+```json
+{
+  "email": "admin@library.com",
+  "password": "Admin@123"
+}
+```
+Copy the `token` value from the response — you will need it for the next requests.
+
+---
+
+### Step 2 — Test REST API (Create a Book)
+- Method: `POST`
+- URL: `https://library-system-backend-eumj.onrender.com/api/v1/books`
+- Tab **Headers** — add two entries:
+  - `Content-Type` : `application/json`
+  - `Authorization` : `Bearer <your_token_here>`
+- Tab **Body** → **raw** → **JSON**:
+```json
+{
+  "title": "Test Book",
+  "isbn": "978-0000000001",
+  "publishedYear": 2024,
+  "authorId": 1
+}
+```
+Click **Send** — the response will return the created book object with an `id`.
+
+---
+
+### Step 3 — Test GraphQL (Mutation)
+- Method: `POST`
+- URL: `https://library-system-backend-eumj.onrender.com/graphql`
+- Tab **Body** → **GraphQL**:
+```graphql
+mutation {
+  createBook(
+    title: "GraphQL Test Book"
+    isbn: "978-0000000002"
+    publishedYear: 2024
+    authorId: 1
+  ) {
+    id
+    title
+    isbn
+  }
+}
+```
+Click **Send** — notice that GraphQL only returns the **3 fields you requested** (`id`, `title`, `isbn`), unlike REST which returns all fields. This demonstrates the key advantage of GraphQL: **no over-fetching**.

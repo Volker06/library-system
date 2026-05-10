@@ -88,6 +88,7 @@ Frontend runs at: `http://localhost:5173`
 ### Step 4 — Open the App
 Go to 👉 `http://localhost:5173` and log in with the credentials above.
 
+> ⚠️ You need to run **two terminals simultaneously** — one for the backend and one for the frontend.
 ---
 
 ## Environment Variables

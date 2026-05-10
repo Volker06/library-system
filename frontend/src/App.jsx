@@ -130,6 +130,7 @@ export default function App() {
     { id: 'books',   label: 'Books',        icon: 'ti-books' },
     { id: 'authors', label: 'Authors',      icon: 'ti-user-edit' },
     { id: 'borrow',  label: 'Borrow Records', icon: 'ti-clipboard-list' },
+    { id: 'users',   label: 'Users',        icon: 'ti-users' },
     { id: 'report',  label: 'Reports',      icon: 'ti-chart-bar' },
     { id: 'compare', label: 'API Compare',  icon: 'ti-arrows-exchange' },
   ]
@@ -184,6 +185,7 @@ export default function App() {
               {page === 'borrow'  && 'Borrow Records'}
               {page === 'compare' && 'API Comparison'}
               {page === 'history' && 'My Rentals'}
+              {page === 'users'   && 'Users Management'}
               {page === 'report'  && 'Reports & Analytics'}
               {page === 'payment' && 'Fees & Payment'}
             </h1>
@@ -193,6 +195,7 @@ export default function App() {
               {page === 'borrow'  && 'All borrow & return activity'}
               {page === 'compare' && 'REST vs GraphQL fetching efficiency demo'}
               {page === 'history' && 'Books you are currently borrowing'}
+              {page === 'users'   && 'Manage member accounts'}
               {page === 'report'  && 'Overview of library activity and statistics'}
               {page === 'payment' && 'View and pay outstanding late fees'}
             </p>
@@ -242,6 +245,7 @@ export default function App() {
         {page === 'authors' && isAdmin  && <AuthorsPage token={token} showToast={showToast} />}
         {page === 'borrow'  && isAdmin  && <AdminBorrowPage token={token} />}
         {page === 'compare' && isAdmin  && <ComparePage />}
+        {page === 'users'   && isAdmin  && <AdminUsersPage token={token} showToast={showToast} />}
         {page === 'report'  && isAdmin  && <ReportPage token={token} />}
         {page === 'history' && !isAdmin && <UserHistoryPage token={token} currentUser={currentUser} onReturn={() => { showToast('Returned successfully!'); loadRentals() }} />}
         {page === 'payment' && !isAdmin && <UserPaymentPage token={token} currentUser={currentUser} onReturn={() => { showToast('Returned & paid successfully!'); loadRentals() }} />}
@@ -785,6 +789,7 @@ function AdminBorrowPage({ token }) {
 
   const load = async () => { const res = await axios.get(`${REST_URL}/borrow`, { headers }); setRecords(res.data); setLoaded(true) }
   const returnBook = async (id) => { await axios.put(`${REST_URL}/borrow/${id}/return`, {}, { headers }); load() }
+  const deleteRecord = async (id) => { if (!window.confirm("Delete this record?")) return; await axios.delete(`${REST_URL}/borrow/${id}`, { headers }); load() }
   useEffect(() => { load() }, [])
 
   const active = records.filter(r => !r.returnedAt)
@@ -831,11 +836,16 @@ function AdminBorrowPage({ token }) {
                     {r.returnedAt ? <Badge color="green">Done</Badge> : <Badge color="orange">Active</Badge>}
                   </td>
                   <td style={{ padding: '11px 14px' }}>
-                    {!r.returnedAt && (
-                      <button onClick={() => returnBook(r.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#EAF3DE', color: '#27500A', border: 'none', borderRadius: '6px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
-                        <i className="ti ti-check" style={{ fontSize: '13px' }} /> Return
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {!r.returnedAt && (
+                        <button onClick={() => returnBook(r.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#EAF3DE', color: '#27500A', border: 'none', borderRadius: '6px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+                          <i className="ti ti-check" style={{ fontSize: '13px' }} /> Return
+                        </button>
+                      )}
+                      <button onClick={() => deleteRecord(r.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FCEBEB', color: '#791F1F', border: 'none', borderRadius: '6px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+                        <i className="ti ti-trash" style={{ fontSize: '13px' }} /> Delete
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1302,3 +1312,104 @@ function UserPaymentPage({ token, currentUser, onReturn }) {
     </div>
   )
 }
+
+// ─── Admin: Users Management ──────────────────────────────────────────────────
+function AdminUsersPage({ token, showToast }) {
+  const [users, setUsers]   = useState([])
+  const [loaded, setLoaded] = useState(false)
+  const headers = { Authorization: `Bearer ${token}` }
+
+  const load = async () => {
+    const res = await axios.get(`${REST_URL}/users`, { headers })
+    setUsers(res.data)
+    setLoaded(true)
+  }
+  useEffect(() => { load() }, [])
+
+  const deleteUser = async (id, name) => {
+    if (!window.confirm(`Delete user "${name}"? This cannot be undone.`)) return
+    try {
+      await axios.delete(`${REST_URL}/users/${id}`, { headers })
+      showToast('User deleted!', 'error')
+      load()
+    } catch {
+      showToast('Cannot delete user with active borrow records', 'error')
+    }
+  }
+
+  const thStyle = { background: 'var(--color-background-secondary)', color: 'var(--color-text-secondary)', fontWeight: 500, fontSize: '12px', padding: '9px 14px', textAlign: 'left', borderBottom: '0.5px solid var(--color-border-tertiary)' }
+
+  const admins  = users.filter(u => u.role === 'admin')
+  const members = users.filter(u => u.role === 'user')
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem' }}>
+        {[
+          { label: 'Total Users', value: users.length, icon: 'ti-users', color: '#185FA5', bg: '#E6F1FB' },
+          { label: 'Members', value: members.length, icon: 'ti-user', color: '#0F6E56', bg: '#EAF3DE' },
+          { label: 'Admins', value: admins.length, icon: 'ti-shield', color: '#633806', bg: '#FAEEDA' },
+        ].map(s => (
+          <Card key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: 44, height: 44, background: s.bg, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className={`ti ${s.icon}`} style={{ fontSize: '22px', color: s.color }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{s.value}</p>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0 }}>{s.label}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <p style={{ fontWeight: 600, fontSize: '14px', margin: 0 }}>All users</p>
+          <button onClick={load} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-secondary)', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+            <i className="ti ti-refresh" style={{ fontSize: '14px' }} /> Refresh
+          </button>
+        </div>
+        {!loaded && <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', textAlign: 'center', padding: '2rem 0' }}>Loading...</p>}
+        {loaded && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr>
+                {[['ti-hash','ID'],['ti-user','Name'],['ti-mail','Email'],['ti-shield','Role'],['ti-settings','Action']].map(([icon, label]) => (
+                  <th key={label} style={thStyle}><i className={`ti ${icon}`} style={{ fontSize: '12px', marginRight: '4px' }} />{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} style={{ borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+                  <td style={{ padding: '11px 14px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>#{u.id}</td>
+                  <td style={{ padding: '11px 14px', fontWeight: 500 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: 28, height: 28, background: u.role === 'admin' ? '#FAEEDA' : '#E6F1FB', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <i className="ti ti-user" style={{ fontSize: '13px', color: u.role === 'admin' ? '#633806' : '#185FA5' }} />
+                      </div>
+                      {u.name}
+                    </div>
+                  </td>
+                  <td style={{ padding: '11px 14px', color: 'var(--color-text-secondary)' }}>{u.email}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <Badge color={u.role === 'admin' ? 'orange' : 'blue'}>{u.role}</Badge>
+                  </td>
+                  <td style={{ padding: '11px 14px' }}>
+                    {u.role !== 'admin' && (
+                      <button onClick={() => deleteUser(u.id, u.name)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FCEBEB', color: '#791F1F', border: 'none', borderRadius: '6px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+                        <i className="ti ti-trash" style={{ fontSize: '13px' }} /> Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  )
+}
+

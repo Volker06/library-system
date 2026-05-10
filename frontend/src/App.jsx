@@ -130,12 +130,14 @@ export default function App() {
     { id: 'books',   label: 'Books',        icon: 'ti-books' },
     { id: 'authors', label: 'Authors',      icon: 'ti-user-edit' },
     { id: 'borrow',  label: 'Borrow Records', icon: 'ti-clipboard-list' },
+    { id: 'report',  label: 'Reports',      icon: 'ti-chart-bar' },
     { id: 'compare', label: 'API Compare',  icon: 'ti-arrows-exchange' },
   ]
 
   const userNav = [
     { id: 'books',   label: 'Browse Books', icon: 'ti-books' },
     { id: 'history', label: 'My Rentals',   icon: 'ti-book-2', badge: activeRentals.length },
+    { id: 'payment', label: 'Fees & Payment', icon: 'ti-receipt' },
   ]
 
   const sidebarColor = isAdmin ? '#1a2744' : '#185FA5'
@@ -182,6 +184,8 @@ export default function App() {
               {page === 'borrow'  && 'Borrow Records'}
               {page === 'compare' && 'API Comparison'}
               {page === 'history' && 'My Rentals'}
+              {page === 'report'  && 'Reports & Analytics'}
+              {page === 'payment' && 'Fees & Payment'}
             </h1>
             <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
               {page === 'books'   && (isAdmin ? 'Manage the book catalogue' : 'Find and borrow books from our collection')}
@@ -189,6 +193,8 @@ export default function App() {
               {page === 'borrow'  && 'All borrow & return activity'}
               {page === 'compare' && 'REST vs GraphQL fetching efficiency demo'}
               {page === 'history' && 'Books you are currently borrowing'}
+              {page === 'report'  && 'Overview of library activity and statistics'}
+              {page === 'payment' && 'View and pay outstanding late fees'}
             </p>
           </div>
 
@@ -236,7 +242,9 @@ export default function App() {
         {page === 'authors' && isAdmin  && <AuthorsPage token={token} showToast={showToast} />}
         {page === 'borrow'  && isAdmin  && <AdminBorrowPage token={token} />}
         {page === 'compare' && isAdmin  && <ComparePage />}
+        {page === 'report'  && isAdmin  && <ReportPage token={token} />}
         {page === 'history' && !isAdmin && <UserHistoryPage token={token} currentUser={currentUser} onReturn={() => { showToast('Returned successfully!'); loadRentals() }} />}
+        {page === 'payment' && !isAdmin && <UserPaymentPage token={token} currentUser={currentUser} onReturn={() => { showToast('Returned & paid successfully!'); loadRentals() }} />}
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type || 'success'} onClose={() => setToast(null)} />}
@@ -951,6 +959,344 @@ function ComparePage() {
           <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-secondary)', margin: '12px 0 0' }}>
             GraphQL payload is <span style={{ fontWeight: 600, color: '#0F6E56' }}>{((1 - r.gql.size / r.rest.size) * 100).toFixed(1)}% smaller</span> than REST
           </p>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+// ─── Admin: Reports ───────────────────────────────────────────────────────────
+function ReportPage({ token }) {
+  const [records, setRecords] = useState([])
+  const [books, setBooks]     = useState([])
+  const [loaded, setLoaded]   = useState(false)
+
+  useEffect(() => {
+    const headers = { Authorization: `Bearer ${token}` }
+    Promise.all([
+      axios.get(`${REST_URL}/borrow`, { headers }),
+      axios.get(`${REST_URL}/books`),
+    ]).then(([r1, r2]) => {
+      setRecords(r1.data)
+      setBooks(r2.data)
+      setLoaded(true)
+    })
+  }, [])
+
+  const active   = records.filter(r => !r.returnedAt)
+  const returned = records.filter(r => r.returnedAt)
+
+  // Most borrowed books
+  const bookCount = {}
+  records.forEach(r => {
+    const title = r.book?.title || `Book #${r.bookId}`
+    bookCount[title] = (bookCount[title] || 0) + 1
+  })
+  const topBooks = Object.entries(bookCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+  // Most active users
+  const userCount = {}
+  records.forEach(r => {
+    const name = r.user?.name || `User #${r.userId}`
+    userCount[name] = (userCount[name] || 0) + 1
+  })
+  const topUsers = Object.entries(userCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+  // Monthly borrow trend (last 6 months)
+  const monthMap = {}
+  records.forEach(r => {
+    const d = new Date(r.borrowedAt)
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    monthMap[key] = (monthMap[key] || 0) + 1
+  })
+  const months = Object.entries(monthMap).sort((a,b) => a[0].localeCompare(b[0])).slice(-6)
+  const maxMonth = Math.max(...months.map(m => m[1]), 1)
+
+  const statCards = [
+    { label: 'Total Borrows', value: records.length, icon: 'ti-clipboard-list', color: '#185FA5', bg: '#E6F1FB' },
+    { label: 'Active Rentals', value: active.length, icon: 'ti-book-2', color: '#633806', bg: '#FAEEDA' },
+    { label: 'Returned', value: returned.length, icon: 'ti-circle-check', color: '#27500A', bg: '#EAF3DE' },
+    { label: 'Books Available', value: books.length, icon: 'ti-books', color: '#185FA5', bg: '#E6F1FB' },
+  ]
+
+  if (!loaded) return <Card><p style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-secondary)', fontSize: '13px' }}>Loading report...</p></Card>
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem' }}>
+        {statCards.map(s => (
+          <Card key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: 44, height: 44, background: s.bg, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className={`ti ${s.icon}`} style={{ fontSize: '22px', color: s.color }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{s.value}</p>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0 }}>{s.label}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Monthly trend */}
+      <Card>
+        <p style={{ fontWeight: 600, fontSize: '14px', margin: '0 0 1.25rem' }}>Monthly Borrow Trend</p>
+        {months.length === 0
+          ? <p style={{ textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '13px', padding: '1rem 0' }}>No data yet</p>
+          : (
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '140px' }}>
+              {months.map(([month, count]) => (
+                <div key={month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#185FA5' }}>{count}</span>
+                  <div style={{ width: '100%', background: '#185FA5', borderRadius: '6px 6px 0 0', height: `${(count / maxMonth) * 100}px`, minHeight: '4px', transition: 'height 0.4s' }} />
+                  <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)' }}>{month.slice(5)}/{month.slice(2,4)}</span>
+                </div>
+              ))}
+            </div>
+          )
+        }
+      </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+        {/* Top books */}
+        <Card>
+          <p style={{ fontWeight: 600, fontSize: '14px', margin: '0 0 1rem' }}>Most Borrowed Books</p>
+          {topBooks.length === 0
+            ? <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>No data yet</p>
+            : topBooks.map(([title, count], i) => (
+              <div key={title} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <span style={{ width: 22, height: 22, background: i === 0 ? '#FAEEDA' : 'var(--color-background-secondary)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: i === 0 ? '#633806' : 'var(--color-text-secondary)', flexShrink: 0 }}>{i+1}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: '0 0 3px', fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</p>
+                  <div style={{ background: 'var(--color-background-secondary)', borderRadius: '99px', height: '5px' }}>
+                    <div style={{ background: '#185FA5', height: '5px', borderRadius: '99px', width: `${(count / (topBooks[0]?.[1] || 1)) * 100}%` }} />
+                  </div>
+                </div>
+                <Badge color="blue">{count}x</Badge>
+              </div>
+            ))
+          }
+        </Card>
+
+        {/* Top users */}
+        <Card>
+          <p style={{ fontWeight: 600, fontSize: '14px', margin: '0 0 1rem' }}>Most Active Members</p>
+          {topUsers.length === 0
+            ? <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>No data yet</p>
+            : topUsers.map(([name, count], i) => (
+              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ width: 32, height: 32, background: i === 0 ? '#E6F1FB' : 'var(--color-background-secondary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <i className="ti ti-user" style={{ fontSize: '14px', color: i === 0 ? '#185FA5' : 'var(--color-text-secondary)' }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: '0 0 3px', fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
+                  <div style={{ background: 'var(--color-background-secondary)', borderRadius: '99px', height: '5px' }}>
+                    <div style={{ background: '#0F6E56', height: '5px', borderRadius: '99px', width: `${(count / (topUsers[0]?.[1] || 1)) * 100}%` }} />
+                  </div>
+                </div>
+                <Badge color="green">{count} borrows</Badge>
+              </div>
+            ))
+          }
+        </Card>
+      </div>
+
+      {/* Recent activity */}
+      <Card>
+        <p style={{ fontWeight: 600, fontSize: '14px', margin: '0 0 1rem' }}>Recent Activity</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <thead>
+            <tr>
+              {['Book', 'Member', 'Borrowed', 'Returned', 'Status'].map(h => (
+                <th key={h} style={{ background: 'var(--color-background-secondary)', color: 'var(--color-text-secondary)', fontWeight: 500, fontSize: '12px', padding: '9px 14px', textAlign: 'left', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {records.slice().reverse().slice(0, 10).map(r => (
+              <tr key={r.id} style={{ borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+                <td style={{ padding: '10px 14px', fontWeight: 500 }}>{r.book?.title || '—'}</td>
+                <td style={{ padding: '10px 14px', color: 'var(--color-text-secondary)' }}>{r.user?.name || '—'}</td>
+                <td style={{ padding: '10px 14px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>{new Date(r.borrowedAt).toLocaleDateString()}</td>
+                <td style={{ padding: '10px 14px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>{r.returnedAt ? new Date(r.returnedAt).toLocaleDateString() : '—'}</td>
+                <td style={{ padding: '10px 14px' }}>{r.returnedAt ? <Badge color="green">Returned</Badge> : <Badge color="orange">Active</Badge>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  )
+}
+
+// ─── User: Fees & Payment ─────────────────────────────────────────────────────
+const DAILY_RATE = 2000   // 2,000 VND per day
+const FREE_DAYS  = 7      // first 7 days free
+
+function calcFee(borrowedAt, returnedAt) {
+  const end   = returnedAt ? new Date(returnedAt) : new Date()
+  const start = new Date(borrowedAt)
+  const days  = Math.floor((end - start) / (1000 * 60 * 60 * 24))
+  const lateDays = Math.max(0, days - FREE_DAYS)
+  return { days, lateDays, fee: lateDays * DAILY_RATE }
+}
+
+function UserPaymentPage({ token, currentUser, onReturn }) {
+  const [records, setRecords] = useState([])
+  const [loaded, setLoaded]   = useState(false)
+  const [paying, setPaying]   = useState(null)
+  const [showReceipt, setShowReceipt] = useState(null)
+
+  const load = async () => {
+    const res = await axios.get(`${REST_URL}/borrow`, { headers: { Authorization: `Bearer ${token}` } })
+    setRecords(res.data.filter(r => r.userId === currentUser.id))
+    setLoaded(true)
+  }
+  useEffect(() => { load() }, [])
+
+  const handleReturn = async (r) => {
+    const { fee } = calcFee(r.borrowedAt)
+    setPaying(r.id)
+    await axios.put(`${REST_URL}/borrow/${r.id}/return`, {}, { headers: { Authorization: `Bearer ${token}` } })
+    setShowReceipt({ ...r, fee, returnedAt: new Date().toISOString() })
+    onReturn()
+    load()
+    setPaying(null)
+  }
+
+  const active   = records.filter(r => !r.returnedAt)
+  const returned = records.filter(r => r.returnedAt)
+  const totalOwed = active.reduce((sum, r) => sum + calcFee(r.borrowedAt).fee, 0)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Receipt modal */}
+      {showReceipt && createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#ffffff', borderRadius: '16px', padding: '2rem', width: '360px', boxShadow: '0 24px 64px rgba(0,0,0,0.2)', textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, background: '#EAF3DE', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <i className="ti ti-circle-check" style={{ fontSize: '28px', color: '#27500A' }} />
+            </div>
+            <p style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 4px' }}>Return Receipt</p>
+            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: '0 0 1.5rem' }}>{new Date().toLocaleDateString('vi-VN', { dateStyle: 'long' })}</p>
+            <div style={{ background: '#F8F9FA', borderRadius: '10px', padding: '1rem', textAlign: 'left', marginBottom: '1.25rem' }}>
+              {[
+                ['Book', showReceipt.book?.title || '—'],
+                ['Borrowed', new Date(showReceipt.borrowedAt).toLocaleDateString()],
+                ['Returned', new Date(showReceipt.returnedAt).toLocaleDateString()],
+                ['Days kept', `${calcFee(showReceipt.borrowedAt, showReceipt.returnedAt).days} days`],
+                ['Free period', `${FREE_DAYS} days`],
+                ['Late days', `${calcFee(showReceipt.borrowedAt, showReceipt.returnedAt).lateDays} days`],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
+                  <span style={{ fontWeight: 500 }}>{value}</span>
+                </div>
+              ))}
+              <div style={{ borderTop: '1px dashed var(--color-border-secondary)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 700 }}>Total Fee</span>
+                <span style={{ fontWeight: 700, color: showReceipt.fee > 0 ? '#A32D2D' : '#27500A', fontSize: '15px' }}>
+                  {showReceipt.fee > 0 ? `${showReceipt.fee.toLocaleString('vi-VN')} VND` : 'Free ✓'}
+                </span>
+              </div>
+            </div>
+            <button onClick={() => setShowReceipt(null)} style={{ width: '100%', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', padding: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+              Done
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem' }}>
+        {[
+          { label: 'Active Rentals', value: active.length, icon: 'ti-book-2', color: '#633806', bg: '#FAEEDA' },
+          { label: 'Total Outstanding', value: totalOwed > 0 ? `${totalOwed.toLocaleString('vi-VN')} đ` : 'Free', icon: 'ti-receipt', color: totalOwed > 0 ? '#A32D2D' : '#27500A', bg: totalOwed > 0 ? '#FCEBEB' : '#EAF3DE' },
+          { label: 'Free Period', value: `${FREE_DAYS} days`, icon: 'ti-calendar-check', color: '#185FA5', bg: '#E6F1FB' },
+        ].map(s => (
+          <Card key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: 44, height: 44, background: s.bg, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className={`ti ${s.icon}`} style={{ fontSize: '22px', color: s.color }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: s.color }}>{s.value}</p>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0 }}>{s.label}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Fee info */}
+      <Card style={{ background: '#E6F1FB', border: '0.5px solid #b3d1f0' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+          <i className="ti ti-info-circle" style={{ fontSize: '18px', color: '#185FA5', flexShrink: 0, marginTop: '1px' }} />
+          <div style={{ fontSize: '13px', color: '#0C447C' }}>
+            <strong>Fee policy:</strong> First {FREE_DAYS} days are free. After that, a late fee of <strong>{DAILY_RATE.toLocaleString('vi-VN')} VND/day</strong> applies. Fees are calculated automatically when you return the book.
+          </div>
+        </div>
+      </Card>
+
+      {/* Active rentals with fees */}
+      <Card>
+        <p style={{ fontWeight: 600, fontSize: '14px', margin: '0 0 1rem' }}>Active Rentals & Fees</p>
+        {active.length === 0
+          ? <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', textAlign: 'center', padding: '1.5rem 0' }}>No active rentals</p>
+          : active.map(r => {
+            const { days, lateDays, fee } = calcFee(r.borrowedAt)
+            const isLate = lateDays > 0
+            return (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: 40, height: 40, background: isLate ? '#FCEBEB' : '#E6F1FB', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <i className="ti ti-book" style={{ fontSize: '18px', color: isLate ? '#A32D2D' : '#185FA5' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontWeight: 500, margin: '0 0 3px', fontSize: '13px' }}>{r.book?.title}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', margin: '0 0 2px' }}>Borrowed {new Date(r.borrowedAt).toLocaleDateString()} · {days} days ago</p>
+                    {isLate
+                      ? <Badge color="red">Late {lateDays} days — {fee.toLocaleString('vi-VN')} VND</Badge>
+                      : <Badge color="green">{FREE_DAYS - days} days remaining (free)</Badge>
+                    }
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleReturn(r)}
+                  disabled={paying === r.id}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: isLate ? '#A32D2D' : '#185FA5', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', opacity: paying === r.id ? 0.7 : 1, flexShrink: 0 }}>
+                  <i className="ti ti-check" style={{ fontSize: '13px' }} />
+                  {paying === r.id ? 'Processing...' : isLate ? `Return & Pay ${fee.toLocaleString('vi-VN')} đ` : 'Return (Free)'}
+                </button>
+              </div>
+            )
+          })
+        }
+      </Card>
+
+      {/* Return history with fees */}
+      {returned.length > 0 && (
+        <Card>
+          <p style={{ fontWeight: 600, fontSize: '14px', margin: '0 0 1rem' }}>Payment History</p>
+          {returned.map(r => {
+            const { lateDays, fee } = calcFee(r.borrowedAt, r.returnedAt)
+            return (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+                <div>
+                  <p style={{ fontWeight: 500, margin: '0 0 2px', fontSize: '13px' }}>{r.book?.title}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', margin: 0 }}>
+                    {new Date(r.borrowedAt).toLocaleDateString()} → {new Date(r.returnedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: '0 0 3px', fontSize: '13px', fontWeight: 600, color: fee > 0 ? '#A32D2D' : '#27500A' }}>
+                    {fee > 0 ? `${fee.toLocaleString('vi-VN')} VND` : 'Free'}
+                  </p>
+                  {fee > 0 && <Badge color="red">Late {lateDays}d</Badge>}
+                  {fee === 0 && <Badge color="green">On time</Badge>}
+                </div>
+              </div>
+            )
+          })}
         </Card>
       )}
     </div>

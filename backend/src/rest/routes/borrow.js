@@ -37,4 +37,16 @@ router.get('/', async (req, res) => {
   res.json(records)
 })
 
+// DELETE borrow record
+router.delete('/:id', async (req, res) => {
+  try {
+    await prisma.borrowRecord.delete({
+      where: { id: parseInt(req.params.id) }
+    })
+    res.json({ message: 'Record deleted' })
+  } catch (e) {
+    res.status(400).json({ error: 'Cannot delete record' })
+  }
+})
+
 export default router

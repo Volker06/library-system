@@ -5,7 +5,7 @@
 
 **GitHub:** https://github.com/Volker06/library-system  
 **Live Demo:** https://library-system-ten-tau.vercel.app  
-**Backend API:** https://library-system-backend-eumj.onrender.com  
+**Backend API:** https://library-system-backend-eumj.onrender.com
 
 ---
 
@@ -20,7 +20,7 @@
 ## Tech Stack
 | Layer | Technology |
 |-------|------------|
-| Frontend | React + Vite |
+| Frontend | React 19 + Vite |
 | Backend | Node.js + Express 4 |
 | REST API | Express Router |
 | GraphQL | Apollo Server 4 |
@@ -61,22 +61,24 @@ Wait until the browser displays JSON data (approximately 30–60 seconds).
 - Node.js v18+
 - npm v9+
 
+> ⚠️ You need to run **two terminals simultaneously** — one for the backend and one for the frontend.
+
 ### Step 1 — Clone the Repository
 ```bash
 git clone https://github.com/Volker06/library-system.git
 cd library-system
 ```
 
-### Step 2 — Set Up Backend
+### Step 2 — Set Up Backend (Terminal 1)
 ```bash
 cd backend
 npm install
 npx prisma migrate dev
 npm run dev
 ```
-Backend runs at: `http://localhost:10000`
+Backend runs at: `http://localhost:4000`
 
-### Step 3 — Set Up Frontend
+### Step 3 — Set Up Frontend (Terminal 2)
 Open a new terminal:
 ```bash
 cd frontend
@@ -88,21 +90,20 @@ Frontend runs at: `http://localhost:5173`
 ### Step 4 — Open the App
 Go to 👉 `http://localhost:5173` and log in with the credentials above.
 
-> ⚠️ You need to run **two terminals simultaneously** — one for the backend and one for the frontend.
 ---
 
 ## Environment Variables
 
 ### Backend — `backend/.env`
 ```env
-DATABASE_URL="file:./dev.db"
-PORT=10000
-JWT_SECRET=your_secret_key
+DATABASE_URL=file:./prisma/dev.db
+PORT=4000
+JWT_SECRET=library_secret_key_2024
 ```
 
 ### Frontend — `frontend/.env`
 ```env
-VITE_API_URL=http://localhost:10000
+VITE_API_URL=http://localhost:4000
 ```
 
 ---
@@ -149,6 +150,7 @@ VITE_API_URL=http://localhost:10000
 | POST | /api/v1/authors | Create an author |
 | GET | /api/v1/users | Get all users |
 | DELETE | /api/v1/users/:id | Delete a user |
+| POST | /api/v1/auth/login | Login |
 | POST | /api/v1/borrow | Borrow a book |
 | PUT | /api/v1/borrow/:id/return | Return a book |
 | DELETE | /api/v1/borrow/:id | Delete a borrow record |
@@ -174,19 +176,6 @@ mutation { returnBook(id: 1) { id returnedAt } }
 
 ---
 
-## Key Findings — REST vs GraphQL
-
-| Criteria | REST | GraphQL |
-|----------|------|---------|
-| Over-fetching | ❌ Yes | ✅ No |
-| Under-fetching | ❌ Yes | ✅ No |
-| Number of endpoints | Multiple | Single (/graphql) |
-| HTTP Caching | ✅ Easy | ❌ Complex |
-| Learning Curve | ✅ Easy | ❌ Steeper |
-| Payload Size | 205 chars | 54 chars (73.7% smaller) |
-
----
-
 ## Testing with Postman
 
 ### Step 1 — Login to get Token
@@ -199,7 +188,7 @@ mutation { returnBook(id: 1) { id returnedAt } }
   "password": "Admin@123"
 }
 ```
-Copy the `token` value from the response — you will need it for the next requests.
+Copy the `token` value from the response.
 
 ---
 
@@ -218,7 +207,7 @@ Copy the `token` value from the response — you will need it for the next reque
   "authorId": 1
 }
 ```
-Click **Send** — the response will return the created book object with an `id`.
+Click **Send** — the response returns the created book object with an `id`.
 
 ---
 
@@ -241,3 +230,16 @@ mutation {
 }
 ```
 Click **Send** — notice that GraphQL only returns the **3 fields you requested** (`id`, `title`, `isbn`), unlike REST which returns all fields. This demonstrates the key advantage of GraphQL: **no over-fetching**.
+
+---
+
+## Key Findings — REST vs GraphQL
+
+| Criteria | REST | GraphQL |
+|----------|------|---------|
+| Over-fetching | ❌ Yes | ✅ No |
+| Under-fetching | ❌ Yes | ✅ No |
+| Number of endpoints | Multiple | Single (/graphql) |
+| HTTP Caching | ✅ Easy | ❌ Complex |
+| Learning Curve | ✅ Easy | ❌ Steeper |
+| Payload Size | 205 chars | 54 chars (73.7% smaller) |

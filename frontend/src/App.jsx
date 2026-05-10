@@ -576,13 +576,22 @@ function UserHistoryPage({ token, currentUser, onReturn }) {
 function AdminBooksPage({ token, showToast }) {
   const [books, setBooks]       = useState([])
   const [loaded, setLoaded]     = useState(false)
+  const [authors, setAuthors]   = useState([])
   const [search, setSearch]     = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editBook, setEditBook] = useState(null)
   const [form, setForm]         = useState({ title: '', isbn: '', publishedYear: '', authorId: '' })
   const headers = { Authorization: `Bearer ${token}` }
 
-  const load = async () => { const res = await axios.get(`${REST_URL}/books`); setBooks(res.data); setLoaded(true) }
+  const load = async () => {
+    const [booksRes, authorsRes] = await Promise.all([
+      axios.get(`${REST_URL}/books`),
+      axios.get(`${REST_URL}/authors`),
+    ])
+    setBooks(booksRes.data)
+    setAuthors(authorsRes.data)
+    setLoaded(true)
+  }
   useEffect(() => { load() }, [])
 
   const openAdd  = () => { setEditBook(null); setForm({ title: '', isbn: '', publishedYear: '', authorId: '' }); setShowModal(true) }
@@ -671,13 +680,21 @@ function AdminBooksPage({ token, showToast }) {
               </div>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}><i className="ti ti-x" style={{ fontSize: '18px' }} /></button>
             </div>
-            {[['Title', 'title', 'Book title'], ['ISBN', 'isbn', '978-...'], ['Published Year', 'publishedYear', '2024'], ['Author ID', 'authorId', '1']].map(([label, key, ph]) => (
+            {[['Title', 'title', 'Book title'], ['ISBN', 'isbn', '978-...'], ['Published Year', 'publishedYear', '2024']].map(([label, key, ph]) => (
               <div key={key}>
                 <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-secondary)', display: 'block', marginBottom: '4px' }}>{label}</label>
                 <input value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} placeholder={ph}
-                  style={{ width: '100%', boxSizing: 'border-box', marginBottom: '12px', fontSize: '13px', padding: '8px 10px', borderRadius: '8px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', color: 'var(--color-text-primary)', outline: 'none' }} />
+                  style={{ width: '100%', boxSizing: 'border-box', marginBottom: '12px', fontSize: '13px', padding: '8px 10px', borderRadius: '8px', border: '0.5px solid var(--color-border-secondary)', background: '#ffffff', color: 'var(--color-text-primary)', outline: 'none' }} />
               </div>
             ))}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-secondary)', display: 'block', marginBottom: '4px' }}>Author</label>
+              <select value={form.authorId} onChange={e => setForm({ ...form, authorId: e.target.value })}
+                style={{ width: '100%', boxSizing: 'border-box', marginBottom: '12px', fontSize: '13px', padding: '8px 10px', borderRadius: '8px', border: '0.5px solid var(--color-border-secondary)', background: '#ffffff', color: 'var(--color-text-primary)', outline: 'none', cursor: 'pointer' }}>
+                <option value="">Select an author...</option>
+                {authors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: '0.5px solid var(--color-border-secondary)', borderRadius: '8px', padding: '7px 16px', fontSize: '13px', cursor: 'pointer', color: 'var(--color-text-primary)' }}>Cancel</button>
               <button onClick={save} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#185FA5', color: 'white', border: 'none', borderRadius: '8px', padding: '7px 16px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
@@ -1413,3 +1430,115 @@ function AdminUsersPage({ token, showToast }) {
   )
 }
 
+// ─── Admin: Users Management ──────────────────────────────────────────────────
+function AdminUsersPage({ token, showToast }) {
+  const [users, setUsers]   = useState([])
+  const [loaded, setLoaded] = useState(false)
+  const headers = { Authorization: `Bearer ${token}` }
+
+  const load = async () => {
+    const res = await axios.get(`${REST_URL}/users`, { headers })
+    setUsers(res.data)
+    setLoaded(true)
+  }
+
+  const deleteUser = async (id, name) => {
+    if (!window.confirm(`Delete user "${name}"? This cannot be undone.`)) return
+    try {
+      await axios.delete(`${REST_URL}/users/${id}`, { headers })
+      showToast('User deleted!', 'error')
+      load()
+    } catch {
+      showToast('Cannot delete user with active borrow records.', 'error')
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const admins = users.filter(u => u.role === 'admin')
+  const members = users.filter(u => u.role === 'user')
+  const thStyle = { background: 'var(--color-background-secondary)', color: 'var(--color-text-secondary)', fontWeight: 500, fontSize: '12px', padding: '9px 14px', textAlign: 'left', borderBottom: '0.5px solid var(--color-border-tertiary)' }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem' }}>
+        {[
+          { label: 'Total Users', value: users.length, icon: 'ti-users', color: '#185FA5', bg: '#E6F1FB' },
+          { label: 'Members', value: members.length, icon: 'ti-user', color: '#0F6E56', bg: '#EAF3DE' },
+          { label: 'Admins', value: admins.length, icon: 'ti-shield', color: '#633806', bg: '#FAEEDA' },
+        ].map(s => (
+          <Card key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: 44, height: 44, background: s.bg, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className={`ti ${s.icon}`} style={{ fontSize: '22px', color: s.color }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{s.value}</p>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: 0 }}>{s.label}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <p style={{ fontWeight: 600, fontSize: '14px', margin: 0 }}>All users</p>
+          <button onClick={load} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-secondary)', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+            <i className="ti ti-refresh" style={{ fontSize: '14px' }} /> Refresh
+          </button>
+        </div>
+
+        {!loaded && <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', textAlign: 'center', padding: '2rem 0' }}>Loading...</p>}
+        {loaded && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '5%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '30%' }} />
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '25%' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                {[['ti-hash','ID'],['ti-user','Name'],['ti-mail','Email'],['ti-shield','Role'],['ti-settings','Actions']].map(([icon, label]) => (
+                  <th key={label} style={thStyle}>
+                    <i className={`ti ${icon}`} style={{ fontSize: '12px', marginRight: '4px' }} />{label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} style={{ borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+                  <td style={{ padding: '11px 14px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>#{u.id}</td>
+                  <td style={{ padding: '11px 14px', fontWeight: 500 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: 28, height: 28, background: u.role === 'admin' ? '#FAEEDA' : '#E6F1FB', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <i className="ti ti-user" style={{ fontSize: '13px', color: u.role === 'admin' ? '#633806' : '#185FA5' }} />
+                      </div>
+                      {u.name}
+                    </div>
+                  </td>
+                  <td style={{ padding: '11px 14px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>{u.email}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <Badge color={u.role === 'admin' ? 'orange' : 'blue'}>{u.role}</Badge>
+                  </td>
+                  <td style={{ padding: '11px 14px' }}>
+                    {u.role !== 'admin' && (
+                      <button onClick={() => deleteUser(u.id, u.name)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FCEBEB', color: '#791F1F', border: 'none', borderRadius: '6px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}>
+                        <i className="ti ti-trash" style={{ fontSize: '13px' }} /> Delete
+                      </button>
+                    )}
+                    {u.role === 'admin' && (
+                      <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>Protected</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  )
+}

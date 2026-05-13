@@ -216,7 +216,7 @@ Click **Send** — the response returns the created book object with an `id`.
 - Method: `POST`
 - URL: `https://library-system-backend-eumj.onrender.com/graphql`
 - Tab **Body** → **GraphQL**:
-```graphql
+```
 mutation {
   createBook(
     title: "GraphQL Test Book"
@@ -234,13 +234,3 @@ Click **Send** — notice that GraphQL only returns the **3 fields you requested
 
 ---
 
-## Key Findings — REST vs GraphQL
-
-| Criteria | REST | GraphQL |
-|----------|------|---------|
-| Over-fetching | ❌ Yes | ✅ No |
-| Under-fetching | ❌ Yes | ✅ No |
-| Number of endpoints | Multiple | Single (/graphql) |
-| HTTP Caching | ✅ Easy | ❌ Complex |
-| Learning Curve | ✅ Easy | ❌ Steeper |
-| Payload Size | 205 chars | 54 chars (73.7% smaller) |
